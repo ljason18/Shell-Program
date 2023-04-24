@@ -1,9 +1,9 @@
 CC = gcc
 CFLAGS = -g -Wall -pedantic
 
-all: go_shell
+all: shell
 
-go_shell: go_shell.o go_shell.h parse.o
+shell: shell.o parse.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 # generic
@@ -11,4 +11,4 @@ go_shell: go_shell.o go_shell.h parse.o
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	-rm -rf *.dSYM *.o go_shell
+	-rm -rf *.dSYM *.o shell
