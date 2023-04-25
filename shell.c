@@ -10,6 +10,7 @@ DESCRIPTION: A SHELL SKELETON
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/wait.h>
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -23,7 +24,15 @@ DESCRIPTION:
 -------------------------------------------------------------------------------*/
 char * buildPrompt()
 {
-  return  "gosh@HW05> ";
+    char *buf = (char *) malloc(256);
+    char *cwd;
+    char *prompt = (char *) malloc(256);
+    strcpy(prompt, "gosh@");
+    realpath(".", buf);
+    cwd = strrchr(buf, '/');
+    strcat(prompt, &cwd[1]);
+    strcat(prompt, "> ");
+  return prompt;
 }
 
 /* -----------------------------------------------------------------------------
@@ -73,8 +82,8 @@ int main( int argc, char **argv )
     	}
 
     	// prints the info struct
-//    	print_info( info );
-
+    	print_info( info );
+/*
     	//com contains the info. of the command before the first "|"
     	com = &info->CommArray[0];
     	if( (com == NULL)  || (com->command == NULL))
@@ -89,16 +98,15 @@ int main( int argc, char **argv )
         {
       		exit(1);
     	}
-
+*/
         // insert your code here / commands etc.
-        int i;
         int pipefd[2];
         pid_t pid;
         int in_fd = STDIN_FILENO;
 
-        for (i = 0; i < info->pipeNum + 1; i++)
+        for (int cmd_num = 0; cmd_num < info->pipeNum + 1; cmd_num++)
         {
-            com = &info->CommArray[i];
+            com = &info->CommArray[cmd_num];
             if( (com == NULL)  || (com->command == NULL))
             {
                 free_info(info);
@@ -132,13 +140,13 @@ int main( int argc, char **argv )
             {
                 // close read end of pipe
                 close(pipefd[0]);
-                if (i != 0)
+                if (cmd_num != 0)
                 {
                     // redirect input from previous command
                     dup2(in_fd, STDIN_FILENO);
                     close(in_fd);
                 }
-                if (i != info->pipeNum)
+                if (cmd_num != info->pipeNum)
                 {
                     // redirect output to next command
                     dup2(pipefd[1], STDOUT_FILENO);
@@ -159,13 +167,17 @@ int main( int argc, char **argv )
                 in_fd = pipefd[0];
             }
         }
-    for (i = 0; i < info->pipeNum; i++)
+    for (int child = 0; child < info->pipeNum; child++)
     {
         // wait for child processes to finish
-        wait(NULL);
+        if (wait(NULL) < 0)
+        {
+            perror("wait");
+            exit(errno);
+        }
     }
 
-
+    wait(NULL);
 
   free_info(info);
 
