@@ -9,35 +9,34 @@ DESCRIPTION: A SHELL SKELETON
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <unistd.h>
-#include <errno.h>
-#include <sys/wait.h>
 #include "parse.h"   // local file include declarations for parse-related structs
 
-enum BUILTIN_COMMANDS {NO_SUCH_BUILTIN=0, EXIT, JOBS};
+enum BUILTIN_COMMANDS { NO_SUCH_BUILTIN=0, EXIT, JOBS };
 
 /* -----------------------------------------------------------------------------
 FUNCTION: buildPrompt()
 DESCRIPTION:
 -------------------------------------------------------------------------------*/
-char *buildPrompt()
+char * buildPrompt()
 {
-    return "gosh@HW05> ";
+  return  "gosh@HW05> ";
 }
 
 /* -----------------------------------------------------------------------------
 FUNCTION: isBuild()
 DESCRIPTION:
 -------------------------------------------------------------------------------*/
-int isBuiltInCommand(char *cmd)
+int isBuiltInCommand( char * cmd )
 {
-    if(strncmp(cmd, "exit", strlen("exit")) == 0)
+  if( strncmp(cmd, "exit", strlen( "exit" ) ) == 0 )
 	{
-        return EXIT;
+	return EXIT;
   	}
-    return NO_SUCH_BUILTIN;
+  return NO_SUCH_BUILTIN;
 }
 
 
@@ -45,19 +44,19 @@ int isBuiltInCommand(char *cmd)
 FUNCTION: main()
 DESCRIPTION:
 -------------------------------------------------------------------------------*/
-int main(int argc, char **argv)
+int main( int argc, char **argv )
 {
-    char *cmdLine;
-    parseInfo *info; 		// info stores all the information returned by parser.
-    struct commandType *com; 	// com stores command name and Arg list for one command.
+  char * cmdLine;
+  parseInfo *info; 		// info stores all the information returned by parser.
+  struct commandType *com; 	// com stores command name and Arg list for one command.
 
-    fprintf(stdout, "This is the SHELL version 0.1\n");
+  fprintf( stdout, "This is the SHELL version 0.1\n" ) ;
 
-    while(1)
-    {
+  while(1)
+  {
     	// insert your code here
-    	cmdLine = readline(buildPrompt()) ;
-    	if(cmdLine == NULL)
+    	cmdLine = readline( buildPrompt() ) ;
+    	if( cmdLine == NULL )
         {
       		fprintf(stderr, "Unable to read command\n");
       		continue;
@@ -66,165 +65,114 @@ int main(int argc, char **argv)
 
 
     	// calls the parser
-    	info = parse(cmdLine);
-        if(info == NULL)
+    	info = parse( cmdLine );
+        if( info == NULL )
         {
       		free(cmdLine);
       		continue;
     	}
 
     	// prints the info struct
-//    	print_info(info);
+//    	print_info( info );
 
     	//com contains the info. of the command before the first "|"
     	com = &info->CommArray[0];
-    	if((com == NULL) || (com->command == NULL))
+    	if( (com == NULL)  || (com->command == NULL))
     	{
       		free_info(info);
       		free(cmdLine);
-//            exit(0);
       		continue;
     	}
 
     	//com->command tells the command name of com
-    	if(isBuiltInCommand(com->command) == EXIT)
+    	if( isBuiltInCommand( com->command ) == EXIT )
         {
       		exit(1);
     	}
 
         // insert your code here / commands etc.
-        int pipe_fd[info->pipeNum][2];
+        int i;
+        int pipefd[2];
         pid_t pid;
-        char *cmd = com->command;
-        char *cmd_args[com->VarNum + 1];
+        int in_fd = STDIN_FILENO;
 
-        for (int num = 0; num < com->VarNum; num++)
+        for (i = 0; i < info->pipeNum + 1; i++)
         {
-            cmd_args[num] = com->VarList[num];
-        }
-        cmd_args[com->VarNum] = NULL;
-
-        if (info->pipeNum > 0)
-        {
-            // Create pipes in a for loop
-            for (int i = 0; i < info->pipeNum; i++)
+            com = &info->CommArray[i];
+            if( (com == NULL)  || (com->command == NULL))
             {
-                if ((pipe(pipe_fd[i])) < 0)
-                {
-                    perror("pipe");
-                    exit(-1);
-                }
+                free_info(info);
+                free(cmdLine);
+                continue;
             }
 
-            for (int pipes = 0; pipes < info->pipeNum + 1; pipes++)
+            //com->command tells the command name of com
+            if( isBuiltInCommand( com->command ) == EXIT )
             {
-                if ((pid = fork()) < 0)
-                {
-                    perror("fork");
-                    exit(-1);
-                }
-
-                com = &info->CommArray[pipes];
-                if((com == NULL) || (com->command == NULL))
-                {
-                    free_info(info);
-                    free(cmdLine);
-//                    exit(0);
-//      		continue;
-                }
-
-                //com->command tells the command name of com
-                if(isBuiltInCommand(com->command) == EXIT)
-                {
-                    exit(1);
-                }
-
-                for (int num = 0; num < com->VarNum; num++)
-                {
-                    cmd_args[num] = com->VarList[num];
-                }
-                cmd_args[com->VarNum] = NULL;
-
-                printf("%d\n", pipes);
-                printf("%s\n", cmd_args[0]);
-
-                if (pid == 0)
-                {
-                    if (pipes == 0)
-                    {
-                        dup2(pipe_fd[0][0], STDIN_FILENO);
-                    }
-                    if (pipes != 0)
-                    {
-                        printf("%s 0\n ", cmd_args[0]);
-                        if (dup2(pipe_fd[pipes - 1][0], 0) < 0)
-                        {
-                            perror("dup2");
-                            exit(EXIT_FAILURE);
-                        }
-                    }
-
-                    if (pipes != info->pipeNum)
-                    {
-                        printf("%s 1\n ", cmd_args[0]);
-                        if (dup2(pipe_fd[pipes][1], 1) < 0)
-                        {
-                            perror("dup2");
-                            exit(EXIT_FAILURE);
-                        }
-                    }
-
-                    for (int i = 0; i < info->pipeNum; i++)
-                    {
-                        close(pipe_fd[i][0]);
-                        close(pipe_fd[i][1]);
-                    }
-                    execvp(cmd_args[0], cmd_args);
-//                    perror("execvp");
-//                    exit(errno);
-                }
+                exit(1);
             }
-
-            for (int r = 0; r < info->pipeNum + 1; r++)
+            char *args[com->VarNum + 1];
+            for (int num = 0; num < com->VarNum; num++)
             {
-                for (int c = 0; c < 2; c++)
-                {
-                    close(pipe_fd[r][c]);
-                }
+                args[num] = com->VarList[num];
             }
+            args[com->VarNum] = NULL;
 
-            for (int w = 0; w < info->pipeNum + 1; w++)
+            if (pipe(pipefd) == -1)
             {
-                if (wait(NULL) < 0)
-                {
-                    perror("wait");
-                    exit(errno);
-                }
+                perror("pipe");
+                exit(EXIT_FAILURE);
             }
-        }
-        else
-        {
-            if ((pid = fork()) < 0)
+            if ((pid = fork()) == -1)
             {
                 perror("fork");
-                exit(errno);
+                exit(EXIT_FAILURE);
             }
             else if (pid == 0)
             {
-                execvp(cmd_args[0], cmd_args);
-                perror("execvp");
-                exit(errno);
+                // close read end of pipe
+                close(pipefd[0]);
+                if (i != 0)
+                {
+                    // redirect input from previous command
+                    dup2(in_fd, STDIN_FILENO);
+                    close(in_fd);
+                }
+                if (i != info->pipeNum)
+                {
+                    // redirect output to next command
+                    dup2(pipefd[1], STDOUT_FILENO);
+                }
+                execvp(args[0], args);
+                perror(args[0]);
+                exit(EXIT_FAILURE);
             }
-            else if (pid > 0)
+            else
             {
-                wait(NULL);
+                // close write end of pipe
+                close(pipefd[1]);
+                if (in_fd != STDIN_FILENO)
+                {
+                    close(in_fd);
+                }
+                // input for next command
+                in_fd = pipefd[0];
             }
         }
+    for (i = 0; i < info->pipeNum; i++)
+    {
+        // wait for child processes to finish
+        wait(NULL);
+    }
 
-        free_info(info);
 
-        free(cmdLine);
-//        exit(0);
-    }/* while(1) */
+
+  free_info(info);
+
+  free(cmdLine);
+
+  }/* while(1) */
+
+
 
 } // main
