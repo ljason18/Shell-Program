@@ -82,6 +82,7 @@ int main(int argc, char **argv)
     	{
       		free_info(info);
       		free(cmdLine);
+//            exit(0);
       		continue;
     	}
 
@@ -115,27 +116,58 @@ int main(int argc, char **argv)
                 }
             }
 
-            for (int pipe = 0; pipe < info->pipeNum + 1; pipe++)
+            for (int pipes = 0; pipes < info->pipeNum + 1; pipes++)
             {
                 if ((pid = fork()) < 0)
                 {
                     perror("fork");
                     exit(-1);
                 }
-                else if (pid == 0)
+
+                com = &info->CommArray[pipes];
+                if((com == NULL) || (com->command == NULL))
                 {
-                    if (pipe != 0)
+                    free_info(info);
+                    free(cmdLine);
+//                    exit(0);
+//      		continue;
+                }
+
+                //com->command tells the command name of com
+                if(isBuiltInCommand(com->command) == EXIT)
+                {
+                    exit(1);
+                }
+
+                for (int num = 0; num < com->VarNum; num++)
+                {
+                    cmd_args[num] = com->VarList[num];
+                }
+                cmd_args[com->VarNum] = NULL;
+
+                printf("%d\n", pipes);
+                printf("%s\n", cmd_args[0]);
+
+                if (pid == 0)
+                {
+                    if (pipes == 0)
                     {
-                        if (dup2(pipe_fd[pipe - 1][0], 0) < 0)
+                        dup2(pipe_fd[0][0], STDIN_FILENO);
+                    }
+                    if (pipes != 0)
+                    {
+                        printf("%s 0\n ", cmd_args[0]);
+                        if (dup2(pipe_fd[pipes - 1][0], 0) < 0)
                         {
                             perror("dup2");
                             exit(EXIT_FAILURE);
                         }
                     }
 
-                    if (pipe != info->pipeNum)
+                    if (pipes != info->pipeNum)
                     {
-                        if (dup2(pipe_fd[pipe][1], 1) < 0)
+                        printf("%s 1\n ", cmd_args[0]);
+                        if (dup2(pipe_fd[pipes][1], 1) < 0)
                         {
                             perror("dup2");
                             exit(EXIT_FAILURE);
@@ -147,9 +179,9 @@ int main(int argc, char **argv)
                         close(pipe_fd[i][0]);
                         close(pipe_fd[i][1]);
                     }
-                    execvp(cmd, cmd_args);
-                    perror("execvp");
-                    exit(errno);
+                    execvp(cmd_args[0], cmd_args);
+//                    perror("execvp");
+//                    exit(errno);
                 }
             }
 
@@ -166,7 +198,7 @@ int main(int argc, char **argv)
                 if (wait(NULL) < 0)
                 {
                     perror("wait");
-                    exit(-1);
+                    exit(errno);
                 }
             }
         }
@@ -179,7 +211,7 @@ int main(int argc, char **argv)
             }
             else if (pid == 0)
             {
-                execvp(cmd, cmd_args);
+                execvp(cmd_args[0], cmd_args);
                 perror("execvp");
                 exit(errno);
             }
@@ -192,6 +224,7 @@ int main(int argc, char **argv)
         free_info(info);
 
         free(cmdLine);
+//        exit(0);
     }/* while(1) */
 
 } // main
