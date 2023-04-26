@@ -27,18 +27,18 @@ DESCRIPTION:  Initializes info structure
 -------------------------------------------------------------------------------*/
 void init_info( parseInfo *p )
 {
-  int i;
-  p->boolInfile=0;
-  p->boolOutfile=0;
-  p->boolBackground=0;
-  p->pipeNum=0;
+    int i;
+    p->boolInfile=0;
+    p->boolOutfile=0;
+    p->boolBackground=0;
+    p->pipeNum=0;
 
-  for( i=0; i<PIPE_MAX_NUM; i++ )
-  {
+    for( i=0; i<PIPE_MAX_NUM; i++ )
+    {
     	p->CommArray[i].command=NULL;
     	p->CommArray[i].VarList[0]=NULL;
     	p->CommArray[i].VarNum=0;
-  }
+    }
 }
 
 
@@ -270,62 +270,62 @@ DESCRIPTION:
 -------------------------------------------------------------------------------*/
 void print_info (parseInfo *info)
 {
-  int i, j;
-  struct commandType *comm;
+    int i, j;
+    struct commandType *comm;
 
-  if (NULL == info)
-  {
+    if (NULL == info)
+    {
     	printf("Null info\n");
     	return;
-  }
-  printf("Parse struct:\n\n");
-  printf("# of pipes:%d\n", info->pipeNum);
+    }
+    printf("Parse struct:\n\n");
+    printf("# of pipes:%d\n", info->pipeNum);
 
-  for( i=0; i<=info->pipeNum;i++ )
-  {
+    for( i=0; i<=info->pipeNum;i++ )
+    {
     	comm=&(info->CommArray[i]);
     	if( (NULL == comm) || (NULL == comm->command))
-	{
+        {
       		printf("Command %d is NULL\n", i);
     	}
-	else
-	{
+        else
+        {
       		printf("Command %d is >%s<.\t", i+1, comm->command);
       		printf("Number of Arguments: %d\n", comm->VarNum);
       		for (j=0; j<comm->VarNum; j++)
-		{
-			printf("Arg %d: >%s< ", j, comm->VarList[j]);
+            {
+                printf("Arg %d: >%s< ", j, comm->VarList[j]);
       		}
-      	printf("\n");
+            printf("\n");
     	}
-  }
-  printf("\n");
+    }
+    printf("\n");
 
-  if (info->boolInfile)
-  {
+    if (info->boolInfile)
+    {
     	printf("infile: %s\n", info->inFile);
-  }
-  else
-  {
+    }
+    else
+    {
     	printf("no input redirection.\n");
-  }
+    }
 
-  if (info->boolOutfile)
-  {
-    	printf("outfile: %s\n", info->outFile);
-  }
-  else
-  {
-    	printf("no output redirection.\n");
-  }
-  if (info->boolBackground)
-  {
-    	printf("Background process.\n");
-  }
-  else
-  {
+    if (info->boolOutfile)
+    {
+        printf("outfile: %s\n", info->outFile);
+    }
+    else
+    {
+        printf("no output redirection.\n");
+    }
+    if (info->boolBackground)
+    {
+        printf("Background process.\n");
+    }
+    else
+    {
     	printf("Foreground process.\n");
-  }
+    }
 }
 
 /* -----------------------------------------------------------------------------
@@ -334,21 +334,21 @@ DESCRIPTION:
 -------------------------------------------------------------------------------*/
 void free_info (parseInfo *info)
 {
-  int i,j;
-  struct commandType *comm;
+    int i,j;
+    struct commandType *comm;
 
-  if( NULL == info) return;
-  for( i=0; i<PIPE_MAX_NUM;i++ )
-  {
+    if( NULL == info) return;
+    for( i=0; i<PIPE_MAX_NUM;i++ )
+    {
     	comm=&(info->CommArray[i]);
     	for (j=0; j<comm->VarNum; j++)
-	{
+        {
       		free(comm->VarList[j]);
     	}
     	if (NULL != comm->command)
-	{
+        {
       		free(comm->command);
     	}
-  }
-  free(info);
+    }
+    free(info);
 }

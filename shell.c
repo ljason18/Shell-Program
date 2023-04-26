@@ -1,9 +1,9 @@
 /* -----------------------------------------------------------------------------
-FILE: shell.c
+   FILE: shell.c
 
-NAME:
+   NAME: Jason
 
-DESCRIPTION: A SHELL SKELETON
+   DESCRIPTION: A SHELL SKELETON
 -------------------------------------------------------------------------------*/
 
 #include <stdio.h>
@@ -21,8 +21,8 @@ enum BUILTIN_COMMANDS {NO_SUCH_BUILTIN=0, EXIT, JOBS};
 #define UNUSED(x) (void)(x)
 
 /* -----------------------------------------------------------------------------
-FUNCTION: buildPrompt()
-DESCRIPTION:
+   FUNCTION: buildPrompt()
+   DESCRIPTION:
 -------------------------------------------------------------------------------*/
 char * buildPrompt()
 {
@@ -39,21 +39,21 @@ char * buildPrompt()
 }
 
 /* -----------------------------------------------------------------------------
-FUNCTION: isBuild()
-DESCRIPTION:
+   FUNCTION: isBuild()
+   DESCRIPTION:
 -------------------------------------------------------------------------------*/
 int isBuiltInCommand(char *cmd)
 {
-  if(strncmp(cmd, "exit", strlen("exit")) == 0)
-  {
-      return EXIT;
-  }
-  return NO_SUCH_BUILTIN;
+    if(strncmp(cmd, "exit", strlen("exit")) == 0)
+    {
+        return EXIT;
+    }
+    return NO_SUCH_BUILTIN;
 }
 
 /* -----------------------------------------------------------------------------
-FUNCTION: main()
-DESCRIPTION:
+   FUNCTION: main()
+   DESCRIPTION:
 -------------------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
