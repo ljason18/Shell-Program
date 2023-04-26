@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
    FILE: shell.c
 
-   NAME: Jason
+   NAME: Jason Lin
 
    DESCRIPTION: A SHELL SKELETON
 -------------------------------------------------------------------------------*/
@@ -17,8 +17,16 @@
 #include <readline/history.h>
 #include "parse.h"   // local file include declarations for parse-related structs
 
-enum BUILTIN_COMMANDS {NO_SUCH_BUILTIN=0, EXIT, JOBS};
+enum BUILTIN_COMMANDS {NO_SUCH_BUILTIN=0, EXIT, HELP, CD, JOBS};
+extern int help();
+extern int cd(struct commandType *com, char *home);
+
 #define UNUSED(x) (void)(x)
+#define TRUE 1
+#define SUCCESS 0
+#define ERROR -1
+#define READ_END 0
+#define WRITE_END 1
 
 /* -----------------------------------------------------------------------------
    FUNCTION: buildPrompt()
@@ -44,10 +52,21 @@ char * buildPrompt()
 -------------------------------------------------------------------------------*/
 int isBuiltInCommand(char *cmd)
 {
-    if(strncmp(cmd, "exit", strlen("exit")) == 0)
+    if (strncmp(cmd, "exit", strlen("exit")) == SUCCESS)
     {
         return EXIT;
     }
+
+    if (strncmp(cmd, "help", strlen("exit")) == SUCCESS)
+    {
+        return HELP;
+    }
+
+    if (strncmp(cmd, "cd", strlen("cd")) == SUCCESS)
+    {
+        return CD;
+    }
+
     return NO_SUCH_BUILTIN;
 }
 
@@ -63,47 +82,29 @@ int main(int argc, char **argv)
     char *home = getenv("HOME");
 
     fprintf( stdout, "This is the SHELL version 0.1\n" ) ;
-    while(1)
+    while (TRUE)
     {
-    	// insert your code here
+    	// Insert your code here
         cmdLine = readline(buildPrompt());
-        if(cmdLine == NULL)
+        if (cmdLine == NULL)
         {
             fprintf(stderr, "Unable to read command\n");
             continue;
         }
-        // insert your code about history and !x !-x here
-        if (strcmp(cmdLine, "help") == 0)
-        {
-            printf("command\n");
-            printf("command arg1 arg2 ... arg\n");
-            printf("command arg1 arg2 < infile.txt\n");
-            printf("command arg1 arg2 > outfile.txt\n");
-            printf("command < infile.txt > outfile.txt\n");
-            printf("command1 | command2\n");
-            printf("command1 | command2 | ...  | command8\n");
-            printf("command1 < infile.txt | command2 | ...  | command8 > outfile.txt\n");
-            printf("cd directory\n");
-            printf("cd ~/directory\n");
-            printf("cd ~user/directory\n");
-            printf("pwd\n");
-            printf("exit\n");
-            printf("help\n");
-            continue;
-        }
+        // Insert your code about history and !x !-x here
 
-    	// calls the parser
+    	// Calls the parser
     	info = parse(cmdLine);
-        if(info == NULL)
+        if (info == NULL)
         {
       		free(cmdLine);
       		continue;
     	}
 
-    	// prints the info struct
+    	// Prints the info struct
 //        print_info( info );
 
-    	//com contains the info. of the command before the first "|"
+    	// com contains the info. of the command before the first "|"
     	com = &info->CommArray[0];
     	if ((com == NULL) || (com->command == NULL))
     	{
@@ -112,214 +113,252 @@ int main(int argc, char **argv)
       		continue;
     	}
 
-    	//com->command tells the command name of com
-    	if(isBuiltInCommand(com->command) == EXIT)
+    	// com->command tells the command name of com
+    	if (isBuiltInCommand(com->command) == EXIT)
         {
       		exit(1);
     	}
 
-        // insert your code here / commands etc.
-        char *pipeline_commands[info->pipeNum + 1];
-        char ***pipeline_args = malloc(sizeof(char**) * (info->pipeNum + 1));
-        char *inputs[info->pipeNum + 1];
-        char *outputs[info->pipeNum + 1];
-        char *appends[info->pipeNum + 1];
+        // Insert your code here / commands etc.
 
-        for (int i = 0; i < info->pipeNum + 1; i++)
+        if (isBuiltInCommand(com->command) == HELP)
         {
-            inputs[i] = NULL;
-            outputs[i] = NULL;
+            help();
+            continue;
         }
-        for (int i = 0; i < info->pipeNum + 1; i++)
+
+        if (isBuiltInCommand(com->command) == CD)
         {
-            com = &info->CommArray[i];
-            if((com == NULL) || (com->command == NULL))
+            cd(com, home);
+            continue;
+        }
+
+        int num_pipes = info->pipeNum;
+        int num_cmds = num_pipes + 1;
+        int pipe_fd[num_pipes][2];
+        int pipe_num, cmd_num;
+        char *cmd_pipeline[num_cmds];
+        char ***pipeline_args = malloc(sizeof(char**) * (num_cmds));
+        pid_t pid;
+
+        // Sets up the cmd_pipeline and pipeline_arg arrays
+        for (cmd_num = 0; cmd_num < num_cmds; cmd_num++)
+        {
+            com = &info->CommArray[cmd_num];
+            if ((com == NULL) || (com->command == NULL))
             {
                 free_info(info);
                 free(cmdLine);
                 continue;
             }
-/*
-            if(isBuiltInCommand(com->command) == EXIT)
-            {
-                exit(1);
-            }
-*/
-            char **args = malloc(sizeof(char*) * (com->VarNum + 1));
-            pipeline_commands[i] = com->command;
 
-            for(int k = 0; k < com->VarNum; k ++)
-            {
-                args[k] = com->VarList[k];
-            }
-            args[com->VarNum] = NULL;
-            pipeline_args[i] = args;
+            int num_args = com->VarNum;
+            char **args = malloc(sizeof(char*) * (num_args + 1));
+            cmd_pipeline[cmd_num] = com->command;
 
-            if (strlen(info->inFile) > 0)
+            // Builds args[]
+            for(int arg_num = 0; arg_num < num_args; arg_num++)
             {
-                inputs[i] = info->inFile;
-
+                args[arg_num] = com->VarList[arg_num];
             }
-            if (strlen(info->outFile) > 0 && info->boolOutfile == 2)
-            {
-                appends[i] = info->outFile;
-            }
-            else if (strlen(info->outFile) > 0)
-            {
-                outputs[i] = info->outFile;
-            }
-
-        }
-        int number_commands = sizeof(pipeline_commands) / sizeof(pipeline_commands[0]);
-
-        if(strcmp(pipeline_commands[0], "cd") == 0)
-        {
-            char curr_home[500];
-            strcpy(curr_home, home);
-
-            if (strcmp(pipeline_args[0][1], "~") == 0)
-            {
-                if ((chdir(curr_home)) != 0)
-                {
-                    perror("cd");
-                    continue;
-                }
-            }
-            else if (pipeline_args[0][1] != NULL)
-            {
-                if(pipeline_args[0][1][0] == '~')
-                {
-                    char new_arg[500];
-                    for (int i = 1; i < strlen(pipeline_args[0][1]); i ++)
-                    {
-                        new_arg[i - 1] = pipeline_args[0][1][i];
-                    }
-                    strcat(curr_home, new_arg);
-
-                    if ((chdir(curr_home)) != 0)
-                    {
-                        perror("cd");
-                        continue;
-                    }
-                }
-                else
-                {
-                    if((chdir(pipeline_args[0][1])) != 0)
-                    {
-                        perror("cd");
-                        continue;
-                    }
-                }
-            }
-            continue;
+            args[num_args] = NULL;
+            pipeline_args[cmd_num] = args;
         }
 
-        // This is a test
-        int pipes = info->pipeNum;
-        int pipe_fd[pipes][2];
         UNUSED(pipe_fd);
-        for(int i = 0; i < pipes; i++)
+
+        // Initializes the pipes
+        for (pipe_num = 0; pipe_num < num_pipes; pipe_num++)
         {
-            if((pipe(pipe_fd[i])) < 0)
+            if ((pipe(pipe_fd[pipe_num])) == ERROR)
             {
                 perror("pipe");
                 exit(errno);
             }
         }
-        pid_t pid;
 
-        for(int k = 0; k < number_commands; k ++)
+        // Creates child process to run command pipeline
+        for (cmd_num = 0; cmd_num < num_cmds; cmd_num++)
         {
-            pid = fork();
-
-            if (pid == 0)
-            {
-                // Test
-                if (inputs[k] != NULL)
-                {
-                    int in_fd;
-                    if ((in_fd = open(inputs[k], O_RDONLY)) < 0)
-                    {
-                        perror("open");
-                        exit(errno);
-                    }
-                    dup2(in_fd, 0);
-                }
-
-                if (outputs[k] != NULL)
-                {
-                    int out_fd;
-                    if ((out_fd = open(outputs[k], O_CREAT | O_WRONLY | O_TRUNC, 0644)) < 0)
-                    {
-                        perror("open");
-                        exit(errno);
-                    }
-                    dup2(out_fd, 1);
-                }
-
-                if (appends[k] != NULL)
-                {
-                    int app_fd;
-                    if ((app_fd = open(appends[k], O_WRONLY | O_APPEND)) < 0)
-                    {
-                        perror("open");
-                        exit(errno);
-                    }
-                    dup2(app_fd, 1);
-                }
-                // End Test
-
-                if (k != 0)
-                {
-                    if (dup2(pipe_fd[k - 1][0], 0) < 0)
-                    {
-                        perror("dup2");
-                        exit(errno);
-                    }
-                }
-                if (k != pipes)
-                {
-                    if (dup2(pipe_fd[k][1], 1) < 0)
-                    {
-                        perror("dup2");
-                        exit(errno);
-                    }
-                }
-
-                for (int y = 0; y < pipes; y ++)
-                {
-                    close(pipe_fd[y][0]);
-                    close(pipe_fd[y][1]);
-                }
-
-                execvp(pipeline_commands[k], pipeline_args[k]);
-                perror("execvp");
-                exit(errno);
-            }
-            else if (pid < 0)
+            if ((pid = fork()) == ERROR)
             {
                 perror("fork");
                 exit(errno);
             }
-        }
-        for (int i = 0; i < pipes; i ++)
-        {
-            close(pipe_fd[i][0]);
-            close(pipe_fd[i][1]);
+            else if (pid == 0)
+            {
+                // Input redirection
+                if (cmd_num == 0 && info->boolInfile)
+                {
+                    int in_fd;
+                    if ((in_fd = open(info->inFile, O_RDONLY)) == ERROR)
+                    {
+                        perror("open");
+                        exit(errno);
+                    }
+                    if ((dup2(in_fd, STDIN_FILENO)) == ERROR)
+                    {
+                        perror("dup2");
+                        exit(errno);
+                    }
+                }
+
+                // Output redirection
+                if (cmd_num == num_cmds - 1 && info->boolOutfile == 1)
+                {
+                    int out_fd;
+                    if ((out_fd = open(info->outFile, O_CREAT | O_WRONLY | O_TRUNC, 0644)) == ERROR)
+                    {
+                        perror("open");
+                        exit(errno);
+                    }
+                    if ((dup2(out_fd, STDOUT_FILENO)) == ERROR)
+                    {
+                        perror("dup2");
+                        exit(errno);
+                    }
+                }
+                else if (cmd_num == num_cmds - 1 && info->boolOutfile == 2)
+                {
+                    int app_fd;
+                    if ((app_fd = open(info->outFile, O_WRONLY | O_APPEND)) == ERROR)
+                    {
+                        perror("open");
+                        exit(errno);
+                    }
+                    if ((dup2(app_fd, STDOUT_FILENO)) == ERROR)
+                    {
+                        perror("dup2");
+                        exit(errno);
+                    }
+                }
+
+                // Redirects STDIN
+                if (cmd_num != 0)
+                {
+                    if (dup2(pipe_fd[cmd_num - 1][READ_END], STDIN_FILENO) == ERROR)
+                    {
+                        perror("dup2");
+                        exit(errno);
+                    }
+                }
+
+                // Redirects STDOUT
+                if (cmd_num != num_pipes)
+                {
+                    if (dup2(pipe_fd[cmd_num][WRITE_END], STDOUT_FILENO) == ERROR)
+                    {
+                        perror("dup2");
+                        exit(errno);
+                    }
+                }
+
+                // Closes unneeded pipe ends
+                for (pipe_num = 0; pipe_num < num_pipes; pipe_num++)
+                {
+                    close(pipe_fd[pipe_num][READ_END]);
+                    close(pipe_fd[pipe_num][WRITE_END]);
+                }
+
+                execvp(cmd_pipeline[cmd_num], pipeline_args[cmd_num]);
+                perror("execvp");
+                exit(errno);
+            }
         }
 
-        for (int i = 0; i < pipes; i ++)
+        // Close unneeded pipe ends
+        for (pipe_num = 0; pipe_num < num_pipes; pipe_num++)
         {
-            if (wait(NULL) < 0)
+            close(pipe_fd[pipe_num][READ_END]);
+            close(pipe_fd[pipe_num][WRITE_END]);
+        }
+
+        // Waits for child processes to terminate
+        for (int child = 0; child < num_pipes; child++)
+        {
+            if (wait(NULL) == ERROR)
             {
                 perror("wait");
                 exit(errno);
             }
         }
-        wait(NULL);
-        // End of test
+
+        // Waits for all other processes to terminate
+        if (wait(NULL) == ERROR)
+        {
+            perror("wait");
+            exit(errno);
+        }
+
         free(cmdLine);
         free(pipeline_args);
         free_info(info);
-  }/* while(1) */
+  }/* while(TRUE) */
 } // main
+
+// Gives user info about how to use the shell
+int help()
+{
+    printf("command\n");
+    printf("command arg1 arg2 ... arg\n");
+    printf("command arg1 arg2 < infile.txt\n");
+    printf("command arg1 arg2 > outfile.txt\n");
+    printf("command < infile.txt > outfile.txt\n");
+    printf("command1 | command2\n");
+    printf("command1 | command2 | ...  | command8\n");
+    printf("command1 < infile.txt | command2 | ...  | command8 > outfile.txt\n");
+    printf("cd directory\n");
+    printf("cd ~/directory\n");
+    printf("cd ~user/directory\n");
+    printf("pwd\n");
+    printf("exit\n");
+    printf("help\n");
+    return 0;
+}
+
+// Implementation of cd
+int cd(struct commandType *com, char *home)
+{
+    char curr_home[500];
+    strcpy(curr_home, home);
+
+    if (strcmp(com->VarList[1], "~") == SUCCESS)
+    {
+        if ((chdir(curr_home)) == ERROR)
+        {
+            perror("cd");
+            return ERROR;
+        }
+    }
+    else if (com->VarList[1] != NULL)
+    {
+        if (com->VarList[1][0] == '~')
+        {
+            char *path = (char *) malloc(256);
+            if (com->VarList[1][1] == '/')
+            {
+                strcpy(path, home);
+                strcat(path, &com->VarList[1][1]);
+            }
+            else
+            {
+                strcpy(path, "/home/myid/");
+                strcat(path, &com->VarList[1][1]);
+            }
+            if ((chdir(path)) == ERROR)
+            {
+                perror("cd");
+                return ERROR;
+            }
+        }
+        else
+        {
+            if ((chdir(com->VarList[1])) == ERROR)
+            {
+                perror("cd");
+                return ERROR;
+            }
+        }
+    }
+    return SUCCESS;
+}
