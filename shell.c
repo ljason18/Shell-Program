@@ -136,7 +136,7 @@ int main(int argc, char **argv)
         int num_pipes = info->pipeNum;
         int num_cmds = num_pipes + 1;
         int pipe_fd[num_pipes][2];
-        int pipe_num, cmd_num;
+        int pipe_num, cmd_num, input_fd, output_fd, append_fd;
         char *cmd_pipeline[num_cmds];
         char ***pipeline_args = malloc(sizeof(char**) * (num_cmds));
         pid_t pid;
@@ -190,13 +190,12 @@ int main(int argc, char **argv)
                 // Input redirection
                 if (cmd_num == 0 && info->boolInfile)
                 {
-                    int in_fd;
-                    if ((in_fd = open(info->inFile, O_RDONLY)) == ERROR)
+                    if ((input_fd = open(info->inFile, O_RDONLY)) == ERROR)
                     {
                         perror("open");
                         exit(errno);
                     }
-                    if ((dup2(in_fd, STDIN_FILENO)) == ERROR)
+                    if ((dup2(input_fd, STDIN_FILENO)) == ERROR)
                     {
                         perror("dup2");
                         exit(errno);
@@ -206,13 +205,13 @@ int main(int argc, char **argv)
                 // Output redirection
                 if (cmd_num == num_cmds - 1 && info->boolOutfile == 1)
                 {
-                    int out_fd;
-                    if ((out_fd = open(info->outFile, O_CREAT | O_WRONLY | O_TRUNC, 0644)) == ERROR)
+                    if ((output_fd = open(info->outFile, O_CREAT | O_WRONLY | O_TRUNC, 0644))
+                    	== ERROR)
                     {
                         perror("open");
                         exit(errno);
                     }
-                    if ((dup2(out_fd, STDOUT_FILENO)) == ERROR)
+                    if ((dup2(output_fd, STDOUT_FILENO)) == ERROR)
                     {
                         perror("dup2");
                         exit(errno);
@@ -220,13 +219,12 @@ int main(int argc, char **argv)
                 }
                 else if (cmd_num == num_cmds - 1 && info->boolOutfile == 2)
                 {
-                    int app_fd;
-                    if ((app_fd = open(info->outFile, O_WRONLY | O_APPEND)) == ERROR)
+                    if ((append_fd = open(info->outFile, O_WRONLY | O_APPEND)) == ERROR)
                     {
                         perror("open");
                         exit(errno);
                     }
-                    if ((dup2(app_fd, STDOUT_FILENO)) == ERROR)
+                    if ((dup2(append_fd, STDOUT_FILENO)) == ERROR)
                     {
                         perror("dup2");
                         exit(errno);
