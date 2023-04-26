@@ -63,11 +63,11 @@ int main(int argc, char **argv)
     char *home = getenv("HOME");
 
     fprintf( stdout, "This is the SHELL version 0.1\n" ) ;
-    int i = 0;
+//    int i = 0;
     while(1)
     {
     	// insert your code here
-        dup2(0,0);
+/*        dup2(0,0);
         dup2(1,1);
         if (i > 0)
         {
@@ -75,6 +75,7 @@ int main(int argc, char **argv)
         }
 
         i++;
+*/
         cmdLine = readline(buildPrompt());
         if(cmdLine == NULL)
         {
@@ -94,7 +95,7 @@ int main(int argc, char **argv)
 
     	// prints the info struct
 //        print_info( info );
-
+/*
     	//com contains the info. of the command before the first "|"
     	com = &info->CommArray[0];
     	if ((com == NULL) || (com->command == NULL))
@@ -109,7 +110,7 @@ int main(int argc, char **argv)
         {
       		exit(1);
     	}
-
+*/
         // insert your code here / commands etc.
         char *pipeline_commands[info->pipeNum + 1];
         char ***pipeline_args = malloc(sizeof(char**) * (info->pipeNum + 1));
@@ -130,6 +131,10 @@ int main(int argc, char **argv)
                 free(cmdLine);
                 continue;
             }
+            if(isBuiltInCommand(com->command) == EXIT)
+            {
+                exit(1);
+            }
 
             char **args = malloc(sizeof(char*) * (com->VarNum + 1));
             pipeline_commands[i] = com->command;
@@ -138,10 +143,9 @@ int main(int argc, char **argv)
             {
                 args[k] = com->VarList[k];
             }
-
             args[com->VarNum] = NULL;
-
             pipeline_args[i] = args;
+
             if (strlen(info->inFile) > 0)
             {
                 inputs[i] = info->inFile;
@@ -198,7 +202,7 @@ int main(int argc, char **argv)
         }
 
         // This is a test
-        int pipes = number_commands - 1;
+        int pipes = info->pipeNum;
         int pipe_fd[pipes][2];
         UNUSED(pipe_fd);
         for(int i = 0; i < pipes; i++)
@@ -264,13 +268,13 @@ int main(int argc, char **argv)
                 exit(errno);
             }
         }
-        for (int i = 0; i < number_commands; i ++)
+        for (int i = 0; i < pipes; i ++)
         {
             close(pipe_fd[i][0]);
             close(pipe_fd[i][1]);
         }
 
-        for (int i = 0; i < number_commands; i ++)
+        for (int i = 0; i < pipes; i ++)
         {
             if (wait(NULL) < 0)
             {
