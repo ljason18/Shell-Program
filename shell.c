@@ -63,19 +63,9 @@ int main(int argc, char **argv)
     char *home = getenv("HOME");
 
     fprintf( stdout, "This is the SHELL version 0.1\n" ) ;
-//    int i = 0;
     while(1)
     {
     	// insert your code here
-/*        dup2(0,0);
-        dup2(1,1);
-        if (i > 0)
-        {
-            free(cmdLine);
-        }
-
-        i++;
-*/
         cmdLine = readline(buildPrompt());
         if(cmdLine == NULL)
         {
@@ -83,7 +73,24 @@ int main(int argc, char **argv)
             continue;
         }
         // insert your code about history and !x !-x here
-
+        if (strcmp(cmdLine, "help") == 0)
+        {
+            printf("command\n");
+            printf("command arg1 arg2 ... arg\n");
+            printf("command arg1 arg2 < infile.txt\n");
+            printf("command arg1 arg2 > outfile.txt\n");
+            printf("command < infile.txt > outfile.txt\n");
+            printf("command1 | command2\n");
+            printf("command1 | command2 | ...  | command8\n");
+            printf("command1 < infile.txt | command2 | ...  | command8 > outfile.txt\n");
+            printf("cd directory\n");
+            printf("cd ~/directory\n");
+            printf("cd ~user/directory\n");
+            printf("pwd\n");
+            printf("exit\n");
+            printf("help\n");
+            continue;
+        }
 
     	// calls the parser
     	info = parse(cmdLine);
@@ -95,7 +102,7 @@ int main(int argc, char **argv)
 
     	// prints the info struct
 //        print_info( info );
-/*
+
     	//com contains the info. of the command before the first "|"
     	com = &info->CommArray[0];
     	if ((com == NULL) || (com->command == NULL))
@@ -110,12 +117,13 @@ int main(int argc, char **argv)
         {
       		exit(1);
     	}
-*/
+
         // insert your code here / commands etc.
         char *pipeline_commands[info->pipeNum + 1];
         char ***pipeline_args = malloc(sizeof(char**) * (info->pipeNum + 1));
         char *inputs[info->pipeNum + 1];
         char *outputs[info->pipeNum + 1];
+        char *appends[info->pipeNum + 1];
 
         for (int i = 0; i < info->pipeNum + 1; i++)
         {
@@ -131,11 +139,12 @@ int main(int argc, char **argv)
                 free(cmdLine);
                 continue;
             }
+/*
             if(isBuiltInCommand(com->command) == EXIT)
             {
                 exit(1);
             }
-
+*/
             char **args = malloc(sizeof(char*) * (com->VarNum + 1));
             pipeline_commands[i] = com->command;
 
@@ -151,7 +160,11 @@ int main(int argc, char **argv)
                 inputs[i] = info->inFile;
 
             }
-            if (strlen(info->outFile) > 0)
+            if (strlen(info->outFile) > 0 && info->boolOutfile == 2)
+            {
+                appends[i] = info->outFile;
+            }
+            else if (strlen(info->outFile) > 0)
             {
                 outputs[i] = info->outFile;
             }
@@ -169,7 +182,7 @@ int main(int argc, char **argv)
                 if ((chdir(curr_home)) != 0)
                 {
                     perror("cd");
-                    exit(errno);
+                    continue;
                 }
             }
             else if (pipeline_args[0][1] != NULL)
@@ -186,7 +199,7 @@ int main(int argc, char **argv)
                     if ((chdir(curr_home)) != 0)
                     {
                         perror("cd");
-                        exit(errno);
+                        continue;
                     }
                 }
                 else
@@ -194,7 +207,7 @@ int main(int argc, char **argv)
                     if((chdir(pipeline_args[0][1])) != 0)
                     {
                         perror("cd");
-                        exit(errno);
+                        continue;
                     }
                 }
             }
@@ -224,14 +237,35 @@ int main(int argc, char **argv)
                 // Test
                 if (inputs[k] != NULL)
                 {
-                    int fd = open(inputs[k], O_RDONLY);
-                    dup2(fd, 0);
+                    int in_fd;
+                    if ((in_fd = open(inputs[k], O_RDONLY)) < 0)
+                    {
+                        perror("open");
+                        exit(errno);
+                    }
+                    dup2(in_fd, 0);
                 }
 
                 if (outputs[k] != NULL)
                 {
-                    int fd = open(outputs[k], O_CREAT | O_WRONLY | O_TRUNC, 0644);
-                    dup2(fd, 1);
+                    int out_fd;
+                    if ((out_fd = open(outputs[k], O_CREAT | O_WRONLY | O_TRUNC, 0644)) < 0)
+                    {
+                        perror("open");
+                        exit(errno);
+                    }
+                    dup2(out_fd, 1);
+                }
+
+                if (appends[k] != NULL)
+                {
+                    int app_fd;
+                    if ((app_fd = open(appends[k], O_WRONLY | O_APPEND)) < 0)
+                    {
+                        perror("open");
+                        exit(errno);
+                    }
+                    dup2(app_fd, 1);
                 }
                 // End Test
 
@@ -289,83 +323,3 @@ int main(int argc, char **argv)
         free_info(info);
   }/* while(1) */
 } // main
-
-void execute_pipeline(char *commands[], char **commands_args[], int number_commands)
-{
-    printf("Into function\n");
-    printf("Command 1: %s\n", commands[0]);
-    printf("Num : %d\n", number_commands);
-    int pipes = number_commands - 1;
-    int pipe_fd[pipes][2];
-    UNUSED(pipe_fd);
-
-    // creates pipes
-    for (int i = 0; i < pipes; i ++)
-    {
-        if((pipe(pipe_fd[i])) < 0)
-        {
-            perror("pipe");
-            exit(errno);
-        }
-    }
-    printf("Created pipes\n");
-    // parent forks children
-    int pid;
-    for (int i = 0; i < number_commands; i ++)
-    {
-        pid = fork();
-        if (pid == 0)
-        {
-            printf("This");
-            if (i != 0)
-            {
-                if (dup2(pipe_fd[i - 1][0], 0) < 0)
-                {
-                    perror("dup2");
-                    exit(errno);
-                }
-            }
-            printf("here?");
-            if (i != pipes)
-            {
-                if (dup2(pipe_fd[i][1], 1) < 0)
-                {
-                    perror("dup2");
-                    exit(errno);
-                }
-            }
-
-            for (int y = 0; y < pipes; y ++)
-            {
-                close(pipe_fd[y][0]);
-                close(pipe_fd[y][1]);
-            }
-
-            execvp(commands[i], commands_args[i]);
-            perror("execvp");
-            exit(errno);
-
-        }
-        else if (pid < 0)
-        {
-            perror("fork");
-            exit(errno);
-        }
-    }
-
-    for (int i = 0; i < number_commands; i ++)
-    {
-        close(pipe_fd[i][0]);
-        close(pipe_fd[i][1]);
-    }
-
-    for (int i = 0; i < number_commands; i ++)
-    {
-        if (wait(NULL) < 0)
-        {
-            perror("wait");
-            exit(errno);
-        }
-    }
-
-} // execute_pipeline

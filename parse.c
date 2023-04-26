@@ -48,47 +48,58 @@ DESCRIPTION:
 -------------------------------------------------------------------------------*/
 int parse_command( char * command, struct commandType *comm )
 {
-  int i=0;
-  int pos=0;
-  char word[MAXLINE];
+    int i=0;
+    int pos=0;
+    char word[MAXLINE];
 
-  comm->VarNum=0;
-  comm->command=NULL;
-  comm->VarList[0]=NULL;
+    comm->VarNum=0;
+    comm->command=NULL;
+    comm->VarList[0]=NULL;
 
-  while( isspace(command[i]) )  // skip over spaces
+    while( isspace(command[i]) )  // skip over spaces
     	i++;
 
 
-  if( command[i] == '\0' )   	// end of word
+    if( command[i] == '\0' )   	// end of word
     	return 1;
 
-  while( command[i] != '\0' )	// while not end of word
-  {
-  	while( command[i] != '\0'  && !isspace(command[i]) )
-	{
-      		word[pos++] = command[i++];
-    	}
-    	word[pos]='\0';
+    while( command[i] != '\0' )	// while not end of word
+    {
+        if (command[i] == '\'')
+        {
+            i++;
+            while (command[i] != '\'')
+            {
+                word[pos++] = command[i++];
+            }
+            i++;
+            continue;
 
-    	if( comm->VarNum == MAX_VAR_NUM )
-    	{
-      		fprintf( stderr, "Too many arguments to command.\n" );
-      		return 0;
-    	}
+        }
+        while( command[i] != '\0'  && !isspace(command[i]) )
+        {
+            word[pos++] = command[i++];
+        }
+        word[pos]='\0';
 
-    	comm->VarList[comm->VarNum] = malloc((strlen(word)+1)*sizeof(char));
-    	strcpy( comm->VarList[comm->VarNum], word );
-    	comm->VarNum++;
-    	word[0]='\0';
-    	pos=0;
-    	while( isspace(command[i]) )
+        if( comm->VarNum == MAX_VAR_NUM )
+        {
+            fprintf( stderr, "Too many arguments to command.\n" );
+            return 0;
+        }
+
+        comm->VarList[comm->VarNum] = malloc((strlen(word)+1)*sizeof(char));
+        strcpy( comm->VarList[comm->VarNum], word );
+        comm->VarNum++;
+        word[0]='\0';
+        pos=0;
+        while( isspace(command[i]) )
       		i++;
-  }
-  comm->command=malloc((strlen(comm->VarList[0])+1)*sizeof(char));
-  strcpy(comm->command, comm->VarList[0]);
-  comm->VarList[comm->VarNum]=NULL;
-  return 1;
+    }
+    comm->command=malloc((strlen(comm->VarList[0])+1)*sizeof(char));
+    strcpy(comm->command, comm->VarList[0]);
+    comm->VarList[comm->VarNum]=NULL;
+    return 1;
 }
 
 
@@ -108,104 +119,109 @@ TODO: Need to be modulariszed a bit more (not required)
 -------------------------------------------------------------------------------*/
 parseInfo *parse( char *cmdline )
 {
-  parseInfo *Result;
-  int i=0;
-  int pos;
-  int end=0;
-  char command[MAXLINE];
-  int com_pos;
-  int iscommproper = 0;
+    parseInfo *Result;
+    int i=0;
+    int pos;
+    int end=0;
+    char command[MAXLINE];
+    int com_pos;
+    int iscommproper = 0;
 
-  if( cmdline[i] == '\n' && cmdline[i] == '\0' )
-    return NULL;
+    if( cmdline[i] == '\n' && cmdline[i] == '\0' )
+        return NULL;
 
-  Result = malloc(sizeof(parseInfo));
-  if( Result == NULL)
+    Result = malloc(sizeof(parseInfo));
+    if( Result == NULL)
 	{
     	return NULL;
   	}
 
-  init_info( Result );
-  com_pos=0;
-  while (cmdline[i] != '\n' && cmdline[i] != '\0')
-  {
+    init_info( Result );
+    com_pos=0;
+    while (cmdline[i] != '\n' && cmdline[i] != '\0')
+    {
     	if( cmdline[i] == '&' )
-	{
+        {
       		Result->boolBackground=1;
 
       		if( cmdline[i+1] != '\n' && cmdline[i+1] != '\0')
-		{
-			fprintf(stderr, "Ignore anything beyond &.\n");
+            {
+                fprintf(stderr, "Ignore anything beyond &.\n");
       		}
 
       		break;
     	}
-
     	else if (cmdline[i] == '<')
-	{
+        {
       		Result->boolInfile++;
       		while( isspace( cmdline[++i] ) );
       		pos=0;
       		while (cmdline[i] != '\0' && !isspace(cmdline[i]))
-		{
-			if( pos==FILE_MAX_SIZE )
-			{
-	  			fprintf(stderr, "Error. The input redirection "
+            {
+                if( pos==FILE_MAX_SIZE )
+                {
+                    fprintf(stderr, "Error. The input redirection "
 					"file name exceeds the size limit 40\n");
-	  			free_info( Result );
+                    free_info( Result );
 	  			return NULL;
-			}
-			Result->inFile[pos++] = cmdline[i++];
+                }
+                Result->inFile[pos++] = cmdline[i++];
       		}
 
       		Result->inFile[pos]='\0';
       		end = 1;
 
       		while( isspace(cmdline[i]))
-		{
-		if( cmdline[i] == '\n' )
-	  		break;
-		i++;
+            {
+                if( cmdline[i] == '\n' )
+                    break;
+                i++;
       		}
     	}
-
     	else if (cmdline[i] == '>')
-	{
-      		Result->boolOutfile++;
-      		while (isspace(cmdline[++i]));
-      		pos=0;
-      		while( cmdline[i] != '\0' && !isspace(cmdline[i]))
-		{
-			if( pos==FILE_MAX_SIZE)
-			{
-	  			fprintf( stderr, "Error.The output redirection file "
-					"name exceeds the size limit 40\n");
-	  			free_info(Result);
+        {
+            if (cmdline[i + 1] == '>')
+            {
+                i++;
+                Result->boolOutfile += 2;
+            }
+            else
+            {
+                Result->boolOutfile++;
+            }
+            while (isspace(cmdline[++i]));
+            pos=0;
+            while( cmdline[i] != '\0' && !isspace(cmdline[i]))
+            {
+                if( pos==FILE_MAX_SIZE)
+                {
+                    fprintf( stderr, "Error.The output redirection file "
+                    "name exceeds the size limit 40\n");
+                    free_info(Result);
 
-	  			return NULL;
-			}
-			Result->outFile[pos++] = cmdline[i++];
-      		}
+                    return NULL;
+                }
+                Result->outFile[pos++] = cmdline[i++];
+            }
 
-      		Result->outFile[pos]='\0';
-      		end = 1;
-      		while( isspace(cmdline[i]))
-		{
-			if( cmdline[i] == '\n' )
-	  			break;
-			i++;
-      		}
+            Result->outFile[pos]='\0';
+            end = 1;
+            while( isspace(cmdline[i]))
+            {
+                if( cmdline[i] == '\n' )
+                    break;
+                i++;
+            }
     	}
-
     	else if (cmdline[i] == '|')
-	{
+        {
       		command[com_pos]='\0';
       		iscommproper = parse_command( command,
-					&Result->CommArray[Result->pipeNum]);
+            &Result->CommArray[Result->pipeNum]);
       		if( ! iscommproper )
-		{
-			free_info( Result );
-			return NULL;
+            {
+                free_info( Result );
+                return NULL;
       		}
 
       		com_pos = 0;
@@ -213,39 +229,38 @@ parseInfo *parse( char *cmdline )
       		Result->pipeNum++;
       		i++;
     	}
-
     	else
-	{
+        {
       		if( end == 1 )
-		{
-	 		fprintf( stderr, "Error.Wrong format of input\n" );
-	 		free_info( Result );
-	 		return NULL;
+            {
+                fprintf( stderr, "Error.Wrong format of input\n" );
+                free_info( Result );
+                return NULL;
       		}
 
       		if( com_pos == MAXLINE-1 )
-		{
-			fprintf( stderr, "Error. The command length exceeds "
+            {
+                fprintf( stderr, "Error. The command length exceeds "
 				"the limit 80\n" );
-			free_info( Result );
-			return NULL;
+                free_info( Result );
+                return NULL;
       		}
 
-      	command[com_pos++] = cmdline[i++];
+            command[com_pos++] = cmdline[i++];
     	}
-  }
+    }
 
-  command[com_pos]='\0';
+    command[com_pos]='\0';
 
-  iscommproper = parse_command( command, &Result->CommArray[Result->pipeNum] );
-  if ( ! iscommproper )
-  {
+    iscommproper = parse_command( command, &Result->CommArray[Result->pipeNum] );
+    if ( ! iscommproper )
+    {
     	free_info(Result);
     	return NULL;
-  }
+    }
 
-  //Result->pipeNum++;
-  return Result;
+    //Result->pipeNum++;
+    return Result;
 }
 
 
