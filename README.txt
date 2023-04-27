@@ -11,17 +11,45 @@ How to compile the program:
 Assumptions:
     Use ./shell to run the program
 
-    The program comes with 3 built in commands
+Usage:
+    Run a unix shell implemenatation that supports basic shell funcionalities including:
+    - reading user input
+    - parsing commands
+    - executing commands
+
+Features:
+    Command Prompt:
+    - displays a command prompt with the current working directory
+
+    Built-in Commands:
     - cd: changes the current working directory
     - exit: terminates the shell
     - help: displays help information about the shell
+    - pwd: prints current working directory
 
-    Supports I/O redirection along with appending output redirection
+    I/O Redirection:
+    - can support both input and output redirection in the same command or command
+      pipeline
+    - supports appending output redirection
 
-    Supports executing command pipelines
+    Command Pipeline Execution
     - can execute pipelines with at least 7 pipes
     - can also include I/O redirection in pipeline
 
+    Auto-Completion
+    - can use TAB to auto-complete the rest of the command
+
+    File Tree
+    - organizes and stores files and directories in tree-like structure
+
+Implementation Details:
+    - command execution implmented using fork(), exec(), and wait()
+    - use pipe() to execute command pipelines
+    - use dup2() and close() for redirecting STDIN and STDOUT and with I/O redirection
+    - prints errors to stderr using perror() followed by exit();
+    - implemented cd using chdir();
+    - used the provided parser to parse the command line
+    - edited the parser to support reading anything within '' as a single argument
 
 Known Limitations & Errors:
     If chdir(), dup2(), execvp(), fork(), pipe(), open(), or wait() fails, the program

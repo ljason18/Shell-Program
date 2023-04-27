@@ -53,17 +53,17 @@ char * buildPrompt()
 -------------------------------------------------------------------------------*/
 int isBuiltInCommand(char *cmd)
 {
-    if (strncmp(cmd, "exit", strlen("exit")) == SUCCESS)
+    if (strcmp(cmd, "exit") == SUCCESS)
     {
         return EXIT;
     }
 
-    if (strncmp(cmd, "help", strlen("exit")) == SUCCESS)
+    if (strcmp(cmd, "help") == SUCCESS)
     {
         return HELP;
     }
 
-    if (strncmp(cmd, "cd", strlen("cd")) == SUCCESS)
+    if (strcmp(cmd, "cd") == SUCCESS)
     {
         return CD;
     }

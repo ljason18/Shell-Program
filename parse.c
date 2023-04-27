@@ -65,6 +65,7 @@ int parse_command( char * command, struct commandType *comm )
 
     while( command[i] != '\0' )	// while not end of word
     {
+        // Makes any argument surrounded by '' one arg
         if (command[i] == '\'')
         {
             i++;
@@ -180,6 +181,7 @@ parseInfo *parse( char *cmdline )
     	}
     	else if (cmdline[i] == '>')
         {
+            // Append output redirection
             if (cmdline[i + 1] == '>')
             {
                 i++;
